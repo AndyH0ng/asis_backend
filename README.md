@@ -38,6 +38,8 @@ cp .env.example .env
 
 ## 실행
 
+### 로컬 개발
+
 ```bash
 go run .
 ```

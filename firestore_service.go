@@ -17,8 +17,20 @@ type FirestoreService struct {
 }
 
 // NewFirestoreService 새로운 Firestore 서비스를 생성합니다
-func NewFirestoreService(ctx context.Context, credentialsPath string) (*FirestoreService, error) {
-	opt := option.WithCredentialsFile(credentialsPath)
+// credentialsPath: 로컬 개발시 파일 경로 또는 credentialsJSON: Railway 배포시 JSON 문자열
+func NewFirestoreService(ctx context.Context, credentialsPath string, credentialsJSON string) (*FirestoreService, error) {
+	var opt option.ClientOption
+
+	// credentialsJSON이 제공되면 우선 사용 (Railway 등 클라우드 배포시)
+	if credentialsJSON != "" {
+		opt = option.WithCredentialsJSON([]byte(credentialsJSON))
+	} else if credentialsPath != "" {
+		// 파일 경로 사용 (로컬 개발시)
+		opt = option.WithCredentialsFile(credentialsPath)
+	} else {
+		return nil, fmt.Errorf("firebase credentials not provided")
+	}
+
 	app, err := firebase.NewApp(ctx, nil, opt)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing firebase app: %v", err)

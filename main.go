@@ -27,12 +27,14 @@ func main() {
 
 	// Firestore 초기화
 	credentialsPath := os.Getenv("FIREBASE_CREDENTIALS_PATH")
-	if credentialsPath == "" {
-		log.Fatal("FIREBASE_CREDENTIALS_PATH environment variable is required")
+	credentialsJSON := os.Getenv("FIREBASE_CREDENTIALS_JSON")
+
+	if credentialsPath == "" && credentialsJSON == "" {
+		log.Fatal("Either FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_JSON environment variable is required")
 	}
 
 	var err error
-	firestoreService, err = NewFirestoreService(ctx, credentialsPath)
+	firestoreService, err = NewFirestoreService(ctx, credentialsPath, credentialsJSON)
 	if err != nil {
 		log.Fatalf("Failed to initialize Firestore service: %v", err)
 	}
