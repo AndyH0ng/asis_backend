@@ -1,0 +1,29 @@
+# 환경 변수 파일
+.env
+
+# Firebase 서비스 계정 키
+firebase-credentials.json
+*-firebase-adminsdk-*.json
+
+# Go 빌드 파일
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+Server
+
+# Go 테스트 파일
+*.test
+*.out
+
+# IDE 관련 파일
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS 관련 파일
+.DS_Store
+Thumbs.db
