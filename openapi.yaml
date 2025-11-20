@@ -1,0 +1,401 @@
+openapi: 3.0.3
+info:
+  title: Asis Recipe Generator API
+  description: |
+    AI 기반 레시피 생성 백엔드 API입니다.
+
+    **주요 기능:**
+    - Firestore에서 재료 목록 조회
+    - OpenAI GPT-4를 활용한 AI 레시피 자동 생성
+    - 생성된 레시피 자동 저장
+
+    **기술 스택:**
+    - Backend: Go (Golang)
+    - Database: Google Cloud Firestore
+    - AI: OpenAI GPT-4
+    - Deployment: Railway
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://github.com/your-repo/asis
+  license:
+    name: MIT
+
+servers:
+  - url: https://asisbackend-production.up.railway.app
+    description: Production Server (Railway)
+  - url: http://localhost:8080
+    description: Local Development Server
+
+tags:
+  - name: health
+    description: 서버 상태 확인
+  - name: ingredients
+    description: 재료 관리
+  - name: recipes
+    description: 레시피 생성 및 관리
+
+paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: 헬스 체크
+      description: 서버가 정상적으로 작동하는지 확인합니다.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: 서버 정상 작동
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+              example:
+                status: "healthy"
+
+  /api/ingredients:
+    get:
+      tags:
+        - ingredients
+      summary: 재료 목록 조회
+      description: |
+        Firestore의 `Ingredients` 컬렉션에서 모든 재료를 조회합니다.
+
+        **참고:**
+        - 재료가 없을 경우 빈 배열을 반환합니다.
+        - 재료는 생성 순서대로 정렬됩니다.
+      operationId: getIngredients
+      responses:
+        '200':
+          description: 재료 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - count
+                  - ingredients
+                properties:
+                  success:
+                    type: boolean
+                    description: 요청 성공 여부
+                    example: true
+                  count:
+                    type: integer
+                    description: 조회된 재료 개수
+                    example: 3
+                  ingredients:
+                    type: array
+                    description: 재료 목록
+                    items:
+                      $ref: '#/components/schemas/Ingredient'
+              examples:
+                success:
+                  summary: 재료 조회 성공
+                  value:
+                    success: true
+                    count: 3
+                    ingredients:
+                      - _SUID: "nJ2Zh4xP"
+                        createDateTime: "2025-11-19T11:47:44.884Z"
+                        ingredient_group: "발효 식품"
+                        ingredient_name: "김치"
+                        ingredient_number: "1"
+                        updateDateTime: "2025-11-19T11:47:44.884Z"
+                      - _SUID: "aB3Cd5eF"
+                        createDateTime: "2025-11-19T12:30:00.000Z"
+                        ingredient_group: "채소"
+                        ingredient_name: "양파"
+                        ingredient_number: "2"
+                        updateDateTime: "2025-11-19T12:30:00.000Z"
+                      - _SUID: "xY9Zw1Qr"
+                        createDateTime: "2025-11-19T13:15:00.000Z"
+                        ingredient_group: "육류"
+                        ingredient_name: "돼지고기"
+                        ingredient_number: "500"
+                        updateDateTime: "2025-11-19T13:15:00.000Z"
+                empty:
+                  summary: 재료 없음
+                  value:
+                    success: true
+                    count: 0
+                    ingredients: []
+        '500':
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Failed to get ingredients"
+
+  /api/generate-recipe:
+    post:
+      tags:
+        - recipes
+      summary: AI 레시피 생성
+      description: |
+        Firestore에 저장된 재료를 기반으로 OpenAI GPT-4를 사용하여 레시피를 자동 생성합니다.
+
+        **처리 과정:**
+        1. Firestore에서 모든 재료 조회
+        2. 재료 정보를 프롬프트로 포맷팅
+        3. OpenAI GPT-4 API 호출하여 레시피 생성
+        4. 생성된 레시피를 Firestore의 `Recipes` 컬렉션에 저장
+        5. 저장된 레시피 정보 반환
+
+        **주의사항:**
+        - 요청 본문 없음 (재료는 Firestore에서 자동으로 가져옴)
+        - 응답 시간: 5-15초 소요 (OpenAI API 호출)
+        - 재료가 없으면 400 에러 반환
+
+      operationId: generateRecipe
+      requestBody:
+        description: 요청 본문 없음 (선택적으로 user_id 포함 가능)
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  description: 사용자 ID (향후 사용자별 재료 필터링에 사용 예정)
+                  example: "user123"
+      responses:
+        '200':
+          description: 레시피 생성 및 저장 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeResponse'
+              examples:
+                success:
+                  summary: 레시피 생성 성공
+                  value:
+                    success: true
+                    message: "Recipe successfully generated and saved with ID: abc123xyz"
+                    recipe:
+                      recipe_name: "김치 볶음밥"
+                      recipe_description: "김치와 간단한 재료로 만드는 맛있는 볶음밥입니다. 매콤하고 고소한 맛이 일품입니다."
+                      recipe_difficulty: "●●○○○"
+                      recipe_estimated_time: "15분"
+                      recipe_ingredient_count: 6
+                      recipe_step_count: 3
+                      recipe_is_marked: false
+                      recipe_status: "0"
+                      createDateTime: "2025-11-20T10:30:00Z"
+                      updateDateTime: "2025-11-20T10:30:00Z"
+                      ingredients:
+                        recipe_ingredient_0: "김치 - 200g"
+                        recipe_ingredient_1: "밥 - 1공기"
+                        recipe_ingredient_2: "양파 - 1/2개"
+                        recipe_ingredient_3: "참기름 - 1큰술"
+                        recipe_ingredient_4: "간장 - 1/2큰술"
+                        recipe_ingredient_5: "식용유 - 2큰술"
+                      cooking_steps:
+                        recipe_step_0_title: "재료 준비"
+                        recipe_step_0_substep_0: "김치는 잘게 썰어줍니다"
+                        recipe_step_0_substep_1: "양파는 잘게 다져줍니다"
+                        recipe_step_0_substep_2: "밥은 미리 준비해둡니다"
+                        recipe_step_0_substep_count: "3"
+                        recipe_step_1_title: "볶기"
+                        recipe_step_1_substep_0: "팬에 식용유를 두르고 중불로 가열합니다"
+                        recipe_step_1_substep_1: "양파를 넣고 투명해질 때까지 볶습니다"
+                        recipe_step_1_substep_2: "김치를 넣고 2-3분간 볶습니다"
+                        recipe_step_1_substep_3: "밥을 넣고 골고루 섞으며 볶습니다"
+                        recipe_step_1_substep_count: "4"
+                        recipe_step_2_title: "마무리"
+                        recipe_step_2_substep_0: "간장과 참기름을 넣고 섞습니다"
+                        recipe_step_2_substep_1: "1-2분간 더 볶아 완성합니다"
+                        recipe_step_2_substep_count: "2"
+        '400':
+          description: 잘못된 요청 (재료 없음)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeResponse'
+              example:
+                success: false
+                message: "No ingredients found in Firestore"
+        '500':
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeResponse'
+              examples:
+                firestoreError:
+                  summary: Firestore 오류
+                  value:
+                    success: false
+                    message: "Failed to get ingredients"
+                openaiError:
+                  summary: OpenAI API 오류
+                  value:
+                    success: false
+                    message: "Failed to generate recipe: error calling OpenAI API"
+                saveError:
+                  summary: 저장 오류
+                  value:
+                    success: false
+                    message: "Failed to save recipe"
+
+components:
+  schemas:
+    Ingredient:
+      type: object
+      description: Firestore에 저장된 재료 정보
+      required:
+        - _SUID
+        - ingredient_name
+        - ingredient_group
+        - ingredient_number
+      properties:
+        _SUID:
+          type: string
+          description: 재료 고유 식별자
+          example: "nJ2Zh4xP"
+        createDateTime:
+          type: string
+          format: date-time
+          description: 생성 일시 (RFC3339 형식)
+          example: "2025-11-19T11:47:44.884Z"
+        ingredient_group:
+          type: string
+          description: 재료 그룹 (카테고리)
+          example: "발효 식품"
+          enum:
+            - "발효 식품"
+            - "채소"
+            - "육류"
+            - "해산물"
+            - "곡물"
+            - "유제품"
+            - "양념"
+            - "기타"
+        ingredient_name:
+          type: string
+          description: 재료 이름
+          example: "김치"
+        ingredient_number:
+          type: string
+          description: 재료 수량 또는 무게 (문자열 형태)
+          example: "1"
+        updateDateTime:
+          type: string
+          format: date-time
+          description: 수정 일시 (RFC3339 형식)
+          example: "2025-11-19T11:47:44.884Z"
+
+    Recipe:
+      type: object
+      description: AI로 생성된 레시피 정보
+      required:
+        - recipe_name
+        - recipe_description
+        - recipe_difficulty
+        - recipe_estimated_time
+        - recipe_ingredient_count
+        - recipe_step_count
+      properties:
+        recipe_name:
+          type: string
+          description: 레시피 이름
+          example: "김치 볶음밥"
+        recipe_description:
+          type: string
+          description: 레시피 설명 (2-3문장)
+          example: "김치와 간단한 재료로 만드는 맛있는 볶음밥입니다. 매콤하고 고소한 맛이 일품입니다."
+        recipe_difficulty:
+          type: string
+          description: 난이도 (●와 ○로 5개 표시)
+          pattern: "^[●○]{5}$"
+          example: "●●○○○"
+        recipe_estimated_time:
+          type: string
+          description: 예상 조리 시간 (분 단위)
+          example: "15분"
+        recipe_ingredient_count:
+          type: integer
+          description: 재료 개수
+          example: 6
+        recipe_step_count:
+          type: integer
+          description: 조리 단계 개수 (큰 단계)
+          example: 3
+        recipe_is_marked:
+          type: boolean
+          description: 즐겨찾기 여부
+          default: false
+          example: false
+        recipe_status:
+          type: string
+          description: 레시피 상태 (0=활성, 1=비활성)
+          enum: ["0", "1"]
+          example: "0"
+        createDateTime:
+          type: string
+          format: date-time
+          description: 생성 일시 (RFC3339 형식)
+          example: "2025-11-20T10:30:00Z"
+        updateDateTime:
+          type: string
+          format: date-time
+          description: 수정 일시 (RFC3339 형식)
+          example: "2025-11-20T10:30:00Z"
+        ingredients:
+          type: object
+          description: 재료 목록 (동적 필드, recipe_ingredient_0, recipe_ingredient_1 등)
+          additionalProperties:
+            type: string
+          example:
+            recipe_ingredient_0: "김치 - 200g"
+            recipe_ingredient_1: "밥 - 1공기"
+            recipe_ingredient_2: "양파 - 1/2개"
+        cooking_steps:
+          type: object
+          description: 조리 단계 (동적 필드, recipe_step_N_title, recipe_step_N_substep_M 등)
+          additionalProperties:
+            type: string
+          example:
+            recipe_step_0_title: "재료 준비"
+            recipe_step_0_substep_0: "김치는 잘게 썰어줍니다"
+            recipe_step_0_substep_count: "3"
+
+    RecipeResponse:
+      type: object
+      description: 레시피 생성 API 응답
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          description: 요청 성공 여부
+          example: true
+        message:
+          type: string
+          description: 응답 메시지
+          example: "Recipe successfully generated and saved with ID: abc123xyz"
+        recipe:
+          $ref: '#/components/schemas/Recipe'
+
+    Error:
+      type: object
+      description: 에러 응답
+      properties:
+        error:
+          type: string
+          description: 에러 메시지
+          example: "Internal server error"
+
+  securitySchemes: {}
+
+security: []
