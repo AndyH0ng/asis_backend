@@ -47,10 +47,10 @@ func main() {
 	}
 	openaiService = NewOpenAIService(openaiAPIKey)
 
-	// HTTP 라우트 설정
-	http.HandleFunc("/health", healthCheckHandler)
-	http.HandleFunc("/api/generate-recipe", generateRecipeHandler)
-	http.HandleFunc("/api/ingredients", getIngredientsHandler)
+	// HTTP 라우트 설정 (CORS 미들웨어 적용)
+	http.HandleFunc("/health", corsMiddleware(healthCheckHandler))
+	http.HandleFunc("/api/generate-recipe", corsMiddleware(generateRecipeHandler))
+	http.HandleFunc("/api/ingredients", corsMiddleware(getIngredientsHandler))
 
 	// 서버 시작
 	port := os.Getenv("PORT")
@@ -165,4 +165,23 @@ func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 		Success: false,
 		Message: message,
 	})
+}
+
+// corsMiddleware CORS 헤더를 추가하는 미들웨어
+func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// CORS 헤더 설정
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Preflight 요청 처리
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// 다음 핸들러 실행
+		next(w, r)
+	}
 }
